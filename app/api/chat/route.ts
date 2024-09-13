@@ -11,7 +11,7 @@ const openai = new OpenAI({
 const systemPrompt = `
 ;; 作者: 李继刚
 ;; 版本: 0.2
-;; 模型: Claude Sonnet
+;; 模型: Command-r-plus
 ;; 用途: 将一个汉语词汇进行全新角度的解释
 
 ;; 设定如下内容为你的 *System Prompt*
@@ -34,6 +34,12 @@ const systemPrompt = `
 (setq design-rule "合理使用负空间，整体排版要有呼吸感"
 design-principles '(干净 简洁 典雅))
 
+(思考步骤
+  (步骤1 . "分析解释内容,提取关键词和主题")
+  (步骤2 . "根据主题选择合适的视觉元素和布局")
+  (步骤3 . "设计SVG结构,包括背景、文字和装饰元素")
+  (步骤4 . "考虑如何使用SVG特性实现动态效果")
+  (步骤5 . "优化SVG代码,确保性能和可读性"))
 
 (设置画布 '(viewBox "0 0 400 600" 边距 20))
 (标题字体 '毛笔楷体)
@@ -49,6 +55,9 @@ design-principles '(干净 简洁 典雅))
 解释
 (动态图 (极简线条图 (精髓 解释))))))
 
+(确保文字可见 '(文字层级 最上层) (文字背景 半透明) (自动折行))
+(所有内容在卡片内)
+
 (defun start ()
 "启动时运行"
 (let (system-role 新汉语老师)
@@ -57,6 +66,7 @@ design-principles '(干净 简洁 典雅))
 ;; 运行规则
 ;; 1. 启动时必须运行 (start) 函数
 ;; 2. 之后调用主函数 (汉语新解 用户输入)
+;; 3. 在生成SVG时,请详细解释每个思考步骤,包括你的推理过程和决策依据
 `;
 
 // (设置画布 '(宽度 400 高度 600 边距 20))
@@ -64,39 +74,52 @@ export async function POST(req: Request) {
   const { prompt } = await req.json();
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4",
-      max_tokens: 1024,
-      messages: [
-        { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: `(汉语新解 ${prompt}) 输出要求: 要输出svg内容`,
-        },
-      ],
-    });
-
-    console.log("response ", response);
-
-    const content = response.choices[0].message.content;
-    if (content) {
-      console.log("返回 text ", content);
-      const svgMatch = content.match(/<svg[\s\S]*?<\/svg>/);
-      const svgContent = svgMatch ? svgMatch[0] : null;
-      return NextResponse.json({
-        svgContent,
+    const generateResponse = async (): Promise<string | null> => {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4",
+        max_tokens: 1024,
+        messages: [
+          { role: "system", content: systemPrompt },
+          {
+            role: "user",
+            content: `(汉语新解 ${prompt}) 输出要求: 要输出svg内容`,
+          },
+        ],
       });
+
+      const content = response.choices[0].message.content;
+      if (content) {
+        const svgMatch = content.match(/<svg[\s\S]*?<\/svg>/);
+        return svgMatch ? svgMatch[0] : null;
+      }
+      return null;
+    };
+
+    const responses = await Promise.race<(string | null)[]>([
+      Promise.all([generateResponse(), generateResponse(), generateResponse()]),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("超时")), 58000)
+      ),
+    ]);
+
+    // 修改这里:找到最后一个有效的SVG内容
+    const validSvgContents = responses.filter(
+      (content): content is string => content !== null
+    );
+    const lastValidSvgContent = validSvgContents[validSvgContents.length - 1];
+
+    console.log("lastValidSvgContent", lastValidSvgContent);
+
+    if (lastValidSvgContent) {
+      return NextResponse.json({ svgContent: lastValidSvgContent });
     }
 
     return NextResponse.json({
       svgContent: null,
-      fullResponse: response.choices[0].message,
+      message: "未能生成有效的SVG内容",
     });
   } catch (error) {
-    console.error("Error in chat API:", error);
-    return NextResponse.json(
-      { error: "Failed to generate response" },
-      { status: 500 }
-    );
+    console.error("聊天API错误:", error);
+    return NextResponse.json({ error: "生成响应失败" }, { status: 500 });
   }
 }
