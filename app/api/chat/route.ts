@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 export const maxDuration = 60;
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 
-const anthropic = new Anthropic({
-  apiKey: process.env["ANTHROPIC_API_KEY"],
-  baseURL: process.env["ANTHROPIC_API_URL"],
+const openai = new OpenAI({
+  apiKey: process.env["OPENAI_API_KEY"],
+  baseURL: process.env["OPENAI_API_URL"],
 });
 
 const systemPrompt = `
@@ -64,11 +64,11 @@ export async function POST(req: Request) {
   const { prompt } = await req.json();
 
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20240620",
+    const response = await openai.chat.completions.create({
+      model: "gpt-4",
       max_tokens: 1024,
       messages: [
-        { role: "assistant", content: systemPrompt },
+        { role: "system", content: systemPrompt },
         {
           role: "user",
           content: `(汉语新解 ${prompt}) 输出要求: 要输出svg内容`,
@@ -76,13 +76,12 @@ export async function POST(req: Request) {
       ],
     });
 
-    // 从响应中提取SVG内容
     console.log("response ", response);
 
-    const content = response.content[0];
-    if (content.type === "text") {
-      console.log("返回 text ", content.text);
-      const svgMatch = content.text.match(/<svg[\s\S]*?<\/svg>/);
+    const content = response.choices[0].message.content;
+    if (content) {
+      console.log("返回 text ", content);
+      const svgMatch = content.match(/<svg[\s\S]*?<\/svg>/);
       const svgContent = svgMatch ? svgMatch[0] : null;
       return NextResponse.json({
         svgContent,
@@ -91,7 +90,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       svgContent: null,
-      fullResponse: response.content,
+      fullResponse: response.choices[0].message,
     });
   } catch (error) {
     console.error("Error in chat API:", error);
