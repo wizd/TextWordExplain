@@ -11,7 +11,7 @@ const openai = new OpenAI({
 const systemPrompt = `
 ;; 作者: 李继刚
 ;; 版本: 0.2
-;; 模型: Command-r-plus
+;; 模型: GPT-5
 ;; 用途: 将一个汉语词汇进行全新角度的解释
 
 ;; 设定如下内容为你的 *System Prompt*
@@ -96,26 +96,33 @@ export async function POST(req: Request) {
     };
 
     const responses = await Promise.race<(string | null)[]>([
-      Promise.all([generateResponse(), generateResponse(), generateResponse()]),
+      Promise.all([
+        generateResponse(),
+        generateResponse(),
+        generateResponse(),
+        generateResponse(),
+        generateResponse(),
+        generateResponse(),
+        generateResponse(),
+        generateResponse(),
+        generateResponse(),
+        generateResponse(),
+      ]),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("超时")), 58000)
+        setTimeout(() => reject(new Error("超时")), 88000)
       ),
     ]);
 
-    // 修改这里:找到最后一个有效的SVG内容
     const validSvgContents = responses.filter(
       (content): content is string => content !== null
     );
-    const lastValidSvgContent = validSvgContents[validSvgContents.length - 1];
 
-    console.log("lastValidSvgContent", lastValidSvgContent);
-
-    if (lastValidSvgContent) {
-      return NextResponse.json({ svgContent: lastValidSvgContent });
+    if (validSvgContents.length > 0) {
+      return NextResponse.json({ svgContents: validSvgContents });
     }
 
     return NextResponse.json({
-      svgContent: null,
+      svgContents: [],
       message: "未能生成有效的SVG内容",
     });
   } catch (error) {
