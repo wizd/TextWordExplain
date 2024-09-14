@@ -262,12 +262,13 @@ export default function SvgGenerator() {
       ) : svgs.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {svgs.map((svg, index) => (
-            <Card key={index} className="h-96 shadow-sm hover:shadow-md transition-shadow duration-300 hover:border-blue-300">
+            <Card key={index} className="shadow-sm hover:shadow-md transition-shadow duration-300 hover:border-blue-300">
               <CardContent className="p-6 flex flex-col items-center justify-center h-full">
                 <div
                   ref={(el: HTMLDivElement | null) => { svgRefs.current[index] = el; }}
                   dangerouslySetInnerHTML={{ __html: svg }}
-                  className="mb-6 w-full h-full"
+                  className="mb-6 w-full h-[300px] flex items-center justify-center"
+                  style={{ overflow: 'visible' }}
                 />
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={() => downloadImage(index)}>
